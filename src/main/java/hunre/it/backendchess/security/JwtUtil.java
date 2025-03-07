@@ -36,9 +36,11 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .setSubject(user.getId().toString())
+                .claim("username", user.getUsername())  // Thêm claim cho username
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)  // Sử dụng HS256 thay vì HS512
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
+
 }
