@@ -24,7 +24,7 @@ public class SecurityConfig {
         http.cors(withDefaults());
         http.csrf(csrf -> csrf.disable());
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/users/**", "/api/engine/**").permitAll()
+                .requestMatchers("/api/auth/**", "/api/users/**", "/api/engine/**", "/api/game/**").permitAll()
                 .anyRequest().authenticated()
         );
         return http.build();
