@@ -1,6 +1,8 @@
 package hunre.it.backendchess.controller;
 
+import hunre.it.backendchess.DTO.GameOverMessage;
 import hunre.it.backendchess.models.Game;
+import hunre.it.backendchess.models.GameResult;
 import hunre.it.backendchess.models.OpponentType;
 import hunre.it.backendchess.repository.GameRepository;
 import org.springframework.http.ResponseEntity;
@@ -9,7 +11,13 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
+
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.handler.annotation.Payload;
+
 
 @RestController
 @RequestMapping("/api/game")
@@ -22,19 +30,22 @@ public class GameController {
     @PostMapping("/save")
     public ResponseEntity<String> saveGame(@RequestBody Game game) {
         try {
-            // Kiểm tra nếu opponentType là null để tránh lỗi
-            if (game.getOpponentType() != null) {
-                // Chuyển opponentType từ String sang Enum đúng cách
-                game.setOpponentType(OpponentType.valueOf(game.getOpponentType().name().toUpperCase()));
+            if (game.getMoves() == null || game.getMoves().trim().isEmpty()) {
+                game.setMoves("No moves");
             }
+
+            if (game.getMatchId() == null) {
+                game.setMatchId(UUID.randomUUID()); // Gán matchId nếu chưa có
+            }
+
             gameRepository.save(game);
             return ResponseEntity.ok("Game saved successfully");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Invalid OpponentType value");
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error saving game");
+            return ResponseEntity.status(500).body("Error saving game: " + e.getMessage());
         }
     }
+
+
 
 
 
@@ -63,6 +74,11 @@ public class GameController {
         }
     }
 
+    @GetMapping("/match/{matchId}")
+    public ResponseEntity<Game> getGameByMatchId(@PathVariable UUID matchId) {
+        return ResponseEntity.of(gameRepository.findByMatchId(matchId));
+    }
+
 
     // 📌 API: Xóa ván đấu
     @DeleteMapping("/delete/{id}")
@@ -73,5 +89,52 @@ public class GameController {
         } else {
             return ResponseEntity.status(404).body("Không tìm thấy ván đấu để xóa.");
         }
+    }
+
+    @MessageMapping("/game-over")
+    @SendTo("/topic/game-over")
+    public GameOverMessage handleGameOver(@Payload GameOverMessage message) {
+        System.out.println("Received game-over message: " + message);
+
+        if (message.getMatchId() == null || message.getMatchId().trim().isEmpty()) {
+            System.out.println("⚠ matchId is null, skipping game save.");
+            return message;
+        }
+    
+        UUID matchId;
+        try {
+            matchId = UUID.fromString(message.getMatchId());
+        } catch (IllegalArgumentException e) {
+            System.out.println("⚠ Invalid matchId format: " + message.getMatchId());
+            return message;
+        }
+
+        String opponentUsername = gameRepository.findOpponentByMatchId(matchId);
+        if (opponentUsername.equals("UNKNOWN")) {
+            opponentUsername = "Unknown Player";
+        }
+
+        if (!gameRepository.existsByPlayerUsernameAndResult(message.getSender(), GameResult.valueOf(message.getResult().toUpperCase()))) {
+            saveGameForPlayer(matchId, message.getSender(), opponentUsername, message.getResult());
+        }
+
+        return message;
+    }
+
+    private void saveGameForPlayer(UUID matchId, String playerUsername, String opponentUsername, String result) {
+        if (gameRepository.existsByPlayerUsernameAndResult(playerUsername, GameResult.valueOf(result.toUpperCase()))) {
+            System.out.println("Game already exists for " + playerUsername + ". Skipping save.");
+            return;
+        }
+
+        Game game = new Game();
+        game.setMatchId(matchId);
+        game.setPlayerUsername(playerUsername);
+        game.setOpponent(opponentUsername.equals("UNKNOWN") ? "Unknown Player" : opponentUsername);
+        game.setResult(GameResult.valueOf(result.toUpperCase()));
+        game.setOpponentType(opponentUsername.equals("UNKNOWN") ? OpponentType.BOT : OpponentType.HUMAN);
+        game.setMoves("No moves");
+
+        gameRepository.save(game);
     }
 }

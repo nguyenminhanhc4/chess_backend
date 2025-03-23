@@ -1,9 +1,7 @@
 package hunre.it.backendchess.config;
 
 import static org.springframework.security.config.Customizer.withDefaults;
-
 import java.util.List;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,7 +22,7 @@ public class SecurityConfig {
         http.cors(withDefaults());
         http.csrf(csrf -> csrf.disable());
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/users/**", "/api/engine/**", "/api/game/**").permitAll()
+                .requestMatchers("/api/**", "/ws/**").permitAll()
                 .anyRequest().authenticated()
         );
         return http.build();

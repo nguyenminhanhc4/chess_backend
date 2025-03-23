@@ -3,6 +3,7 @@ package hunre.it.backendchess.models;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -14,6 +15,8 @@ public class Game {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    private UUID matchId; // Thêm trường matchId
 
     private String playerUsername;
     private String opponent;
@@ -29,8 +32,8 @@ public class Game {
     @Enumerated(EnumType.STRING)
     private GameResult result; // "win", "lose", "draw", "abort"
 
-    private Integer whiteTimeRemaining; // NULL nếu chơi với bot
-    private Integer blackTimeRemaining; // NULL nếu chơi với bot
+    private Integer whiteTimeRemaining;
+    private Integer blackTimeRemaining;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 }
