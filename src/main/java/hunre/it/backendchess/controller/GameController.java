@@ -100,7 +100,7 @@ public class GameController {
             System.out.println("⚠ matchId is null, skipping game save.");
             return message;
         }
-    
+
         UUID matchId;
         try {
             matchId = UUID.fromString(message.getMatchId());

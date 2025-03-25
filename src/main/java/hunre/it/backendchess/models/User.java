@@ -32,4 +32,7 @@ public class User {
 
     @Column(name = "profile_picture")
     private String profilePicture;
+
+    @Transient
+    private String gameMode;
 }
