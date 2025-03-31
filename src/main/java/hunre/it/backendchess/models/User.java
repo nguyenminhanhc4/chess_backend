@@ -30,7 +30,7 @@ public class User {
     @Column(nullable = false)
     private Integer rating = 600;
 
-    @Column(name = "profile_picture")
+    @Column(name = "profile_picture", columnDefinition = "MEDIUMTEXT")
     private String profilePicture;
 
     @Transient

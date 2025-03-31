@@ -31,10 +31,25 @@ public class MatchmakingService {
     @Autowired
     public MatchmakingService(SimpMessagingTemplate messagingTemplate) {
         this.messagingTemplate = messagingTemplate;
-        // Khởi tạo hàng đợi cho các chế độ
-        waitingUsersByMode.put("standard", new ConcurrentLinkedQueue<>());
-        waitingUsersByMode.put("rapid", new ConcurrentLinkedQueue<>());
-        waitingUsersByMode.put("bullet", new ConcurrentLinkedQueue<>());
+        // Khởi tạo hàng đợi cho các chế độ "Siêu Chớp"
+        waitingUsersByMode.put("1+0", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("1+1", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("2+1", new ConcurrentLinkedQueue<>());
+
+        // Khởi tạo hàng đợi cho các chế độ "Chớp"
+        waitingUsersByMode.put("3+0", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("3+2", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("5+0", new ConcurrentLinkedQueue<>());
+
+        // Khởi tạo hàng đợi cho các chế độ "Cờ Chớp"
+        waitingUsersByMode.put("10+0", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("15+10", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("30+0", new ConcurrentLinkedQueue<>());
+
+        // Khởi tạo hàng đợi cho các chế độ "Hàng Ngày"
+        waitingUsersByMode.put("1d", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("3d", new ConcurrentLinkedQueue<>());
+        waitingUsersByMode.put("7d", new ConcurrentLinkedQueue<>());
     }
 
     /**
@@ -43,46 +58,50 @@ public class MatchmakingService {
      */
     @PostMapping("/join")
     public ResponseEntity<String> joinQueue(@RequestBody User user) {
-        // Giả sử User có thêm thuộc tính gameMode
+        System.out.println("joinQueue called with user: " + user);
         String mode = user.getGameMode();
+        System.out.println("User game mode: " + mode);
         if(mode == null || !waitingUsersByMode.containsKey(mode)) {
+            System.out.println("Invalid game mode: " + mode);
             return ResponseEntity.badRequest().body("Game mode không hợp lệ");
         }
 
         Queue<User> queue = waitingUsersByMode.get(mode);
+        System.out.println("Queue size for mode '" + mode + "' before polling: " + queue.size());
         User opponent = queue.poll();
         if (opponent != null) {
+            System.out.println("Found opponent: " + opponent.getUsername() + " for user: " + user.getUsername());
             createMatch(opponent, user);
         } else {
+            System.out.println("No opponent found, adding user " + user.getUsername() + " to queue");
             queue.offer(user);
+            System.out.println("Queue size for mode '" + mode + "' after offer: " + queue.size());
         }
         return ResponseEntity.ok("Đã đăng ký tìm trận trong chế độ " + mode);
     }
 
     private void createMatch(User user1, User user2) {
-        // Phân định màu ngẫu nhiên
         boolean assignUser1White = new Random().nextBoolean();
         String whiteUsername = assignUser1White ? user1.getUsername() : user2.getUsername();
         String blackUsername = assignUser1White ? user2.getUsername() : user1.getUsername();
 
-        // Tạo matchId
         String matchId = UUID.randomUUID().toString();
 
-        // Tạo matchInfo chứa thông tin về match
         Map<String, String> matchInfo = new HashMap<>();
         matchInfo.put("white", whiteUsername);
         matchInfo.put("black", blackUsername);
         matchInfo.put("matchId", matchId);
-        // Có thể lưu thêm thông tin gameMode nếu cần: matchInfo.put("mode", user1.getGameMode());
 
-        // Lưu matchInfo vào store
         matchStore.put(matchId, matchInfo);
 
-        // Gửi thông báo match cho cả 2 người chơi (ở đây dùng topic để test)
-        messagingTemplate.convertAndSend("/topic/match", matchInfo);
-
+        // Log thông tin match trước khi gửi thông báo
         System.out.println("Creating match between " + user1.getUsername() + " and " + user2.getUsername() + ", matchId: " + matchId);
+        System.out.println("Match info: " + matchInfo);
+
+        messagingTemplate.convertAndSend("/topic/match", matchInfo);
+        System.out.println("Match info sent to topic /topic/match");
     }
+
 
     // Phương thức truy xuất match info theo matchId
     public static Map<String, String> getMatchInfo(String matchId) {

@@ -2,11 +2,13 @@ package hunre.it.backendchess.controller;
 
 import hunre.it.backendchess.models.User;
 import hunre.it.backendchess.repository.UserRepository;
+import hunre.it.backendchess.service.CloudinaryService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
@@ -14,9 +16,11 @@ import java.util.List;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final CloudinaryService cloudinaryService;
 
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, CloudinaryService cloudinaryService) {
         this.userRepository = userRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     // Create user
@@ -82,6 +86,23 @@ public class UserController {
                     return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}/profile-picture")
+    public ResponseEntity<User> updateProfilePicture(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return (ResponseEntity<User>) userRepository.findById(id).map(user -> {
+            try {
+                String url = cloudinaryService.uploadFile(file);
+                user.setProfilePicture(url);
+                User saved = userRepository.save(user);
+                return ResponseEntity.ok(saved);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(null);
+            }
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     // Delete user
