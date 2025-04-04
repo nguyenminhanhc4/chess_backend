@@ -16,6 +16,7 @@ public class Game {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(columnDefinition = "BINARY(16)")
     private UUID matchId; // Thêm trường matchId
 
     private String playerUsername;

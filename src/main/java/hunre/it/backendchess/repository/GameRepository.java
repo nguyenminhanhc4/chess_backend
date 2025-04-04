@@ -14,13 +14,21 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     List<Game> findByPlayerUsernameOrderByCreatedAtDesc(String playerUsername);
 
     boolean existsByPlayerUsernameAndResult(String playerUsername, GameResult result);
+    long countByPlayerUsername(String username);
+    long countByPlayerUsernameAndResult(String username, GameResult result);
 
-    Optional<Game> findByMatchId(UUID matchId);
+    List<Game> findByMatchId(UUID matchId);
 
-    default String findOpponentByMatchId(UUID matchId) {
-        return findByMatchId(matchId)
-                .map(Game::getOpponent)
-                .orElse("UNKNOWN");
+    boolean existsByMatchId(UUID matchId);
+
+
+    default String findOpponentByMatchId(UUID matchId, String sender) {
+        return findByMatchId(matchId) // Trả về List<Game>
+                .stream() // Chuyển List thành Stream
+                .filter(game -> !game.getPlayerUsername().equals(sender)) // Lọc game của đối thủ
+                .findFirst() // Lấy game đầu tiên thỏa mãn
+                .map(Game::getPlayerUsername) // Trích xuất username
+                .orElse("UNKNOWN"); // Mặc định nếu không tìm thấy
     }
 }
 

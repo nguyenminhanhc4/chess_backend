@@ -1,14 +1,21 @@
 package hunre.it.backendchess.controller;
 
 import hunre.it.backendchess.DTO.GameOverMessage;
+import hunre.it.backendchess.DTO.UserStats;
 import hunre.it.backendchess.models.Game;
 import hunre.it.backendchess.models.GameResult;
 import hunre.it.backendchess.models.OpponentType;
 import hunre.it.backendchess.repository.GameRepository;
+import hunre.it.backendchess.repository.UserRepository;
+import hunre.it.backendchess.service.RatingService;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,26 +33,94 @@ public class GameController {
 
     private final GameRepository gameRepository;
 
+    private final RatingService ratingService;
+
+    private final UserRepository userRepository;
     // 📌 API: Lưu ván đấu
     @PostMapping("/save")
-    public ResponseEntity<String> saveGame(@RequestBody Game game) {
+    public ResponseEntity<?> saveGame(@RequestBody Game gameRequest) {
         try {
-            if (game.getMoves() == null || game.getMoves().trim().isEmpty()) {
-                game.setMoves("No moves");
+            // Validate các trường bắt buộc
+            if (gameRequest.getPlayerUsername() == null || gameRequest.getPlayerUsername().isBlank()) {
+                return ResponseEntity.badRequest().body("Tên người chơi là bắt buộc");
+            }
+            if (gameRequest.getOpponent() == null || gameRequest.getOpponent().isBlank()) {
+                return ResponseEntity.badRequest().body("Tên đối thủ là bắt buộc");
+            }
+            if (gameRequest.getOpponentType() == null) {
+                return ResponseEntity.badRequest().body("Loại đối thủ là bắt buộc");
             }
 
-            if (game.getMatchId() == null) {
-                game.setMatchId(UUID.randomUUID()); // Gán matchId nếu chưa có
+            // Kiểm tra đối thủ là người thật
+            if (gameRequest.getOpponentType() == OpponentType.HUMAN) {
+                if (!userRepository.existsByUsername(gameRequest.getOpponent())) {
+                    return ResponseEntity.badRequest().body("Đối thủ không tồn tại");
+                }
             }
 
-            gameRepository.save(game);
-            return ResponseEntity.ok("Game saved successfully");
+            // Xử lý matchId
+            UUID matchId = gameRequest.getMatchId();
+            boolean isNewMatch = (matchId == null);
+            if (isNewMatch) {
+                matchId = UUID.randomUUID();
+                gameRequest.setMatchId(matchId);
+            }
+
+            // Kiểm tra trùng lặp
+//            if (gameRepository.existsByMatchIdAndPlayerUsername(matchId, gameRequest.getPlayerUsername())) {
+//                return ResponseEntity.status(HttpStatus.CONFLICT)
+//                        .body("Người chơi đã lưu game này trước đó");
+//            }
+
+            // Tạo và lưu game
+            Game gameToSave = new Game();
+            gameToSave.setMatchId(matchId);
+            gameToSave.setPlayerUsername(gameRequest.getPlayerUsername());
+            gameToSave.setOpponent(gameRequest.getOpponent());
+            gameToSave.setOpponentType(gameRequest.getOpponentType());
+            gameToSave.setResult(gameRequest.getResult());
+            gameToSave.setMoves(gameRequest.getMoves() != null && !gameRequest.getMoves().isBlank()
+                    ? gameRequest.getMoves()
+                    : "No moves");
+            gameToSave.setFinalFen(gameRequest.getFinalFen());
+            gameToSave.setCreatedAt(LocalDateTime.now());
+            gameRepository.save(gameToSave);
+
+            if (gameRequest.getResult() == GameResult.WIN) {
+                // Cập nhật ELO nếu là PvP
+                if (gameRequest.getOpponentType() == OpponentType.HUMAN) {
+                    ratingService.updateElo(
+                            gameToSave.getPlayerUsername(),
+                            gameRequest.getOpponent(),
+                            gameToSave.getResult()
+                    );
+                }
+            }
+            return ResponseEntity.ok("Lưu game thành công. Match ID: " + matchId);
+
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Lỗi trùng lặp dữ liệu: " + e.getMostSpecificCause().getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error saving game: " + e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body("Lỗi khi lưu game: " + e.getMessage());
         }
     }
 
 
+    @GetMapping("/stats/{username}")
+    public ResponseEntity<?> getUserStats(@PathVariable String username) {
+        long totalGames = gameRepository.countByPlayerUsername(username);
+        long wins = gameRepository.countByPlayerUsernameAndResult(username, GameResult.WIN);
+        long losses = gameRepository.countByPlayerUsernameAndResult(username, GameResult.LOSE);
+        long draws = gameRepository.countByPlayerUsernameAndResult(username, GameResult.DRAW);
+
+        double winRate = totalGames > 0 ? (wins * 100.0 / totalGames) : 0;
+        double lossRate = totalGames > 0 ? (losses * 100.0 / totalGames) : 0;
+        double drawRate = totalGames > 0 ? (draws * 100.0 / totalGames) : 0;
+
+        return ResponseEntity.ok(new UserStats(totalGames, winRate, lossRate, drawRate));
+    }
 
 
 
@@ -75,8 +150,12 @@ public class GameController {
     }
 
     @GetMapping("/match/{matchId}")
-    public ResponseEntity<Game> getGameByMatchId(@PathVariable UUID matchId) {
-        return ResponseEntity.of(gameRepository.findByMatchId(matchId));
+    public ResponseEntity<List<Game>> getGameByMatchId(@PathVariable UUID matchId) {
+        List<Game> games = gameRepository.findByMatchId(matchId);
+        if (games.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        return ResponseEntity.ok(games);
     }
 
 
@@ -93,11 +172,11 @@ public class GameController {
 
     @MessageMapping("/game-over")
     @SendTo("/topic/game-over")
+    @Transactional
     public GameOverMessage handleGameOver(@Payload GameOverMessage message) {
-        System.out.println("Received game-over message: " + message);
-
-        if (message.getMatchId() == null || message.getMatchId().trim().isEmpty()) {
-            System.out.println("⚠ matchId is null, skipping game save.");
+        // Validate matchId
+        if (message.getMatchId() == null || message.getMatchId().isBlank()) {
+            System.out.println("⚠ matchId is required");
             return message;
         }
 
@@ -105,17 +184,30 @@ public class GameController {
         try {
             matchId = UUID.fromString(message.getMatchId());
         } catch (IllegalArgumentException e) {
-            System.out.println("⚠ Invalid matchId format: " + message.getMatchId());
+            System.out.println("⚠ Invalid matchId: " + message.getMatchId());
             return message;
         }
 
-        String opponentUsername = gameRepository.findOpponentByMatchId(matchId);
-        if (opponentUsername.equals("UNKNOWN")) {
-            opponentUsername = "Unknown Player";
+        // Lưu game cho cả hai người
+        saveGameForPlayer(matchId, message.getSender(), message.getOpponent(), message.getResult());
+
+        // Lấy opponentUsername từ database
+        String opponentUsername = gameRepository.findOpponentByMatchId(matchId, message.getSender());
+        System.out.println("Opponent: " + opponentUsername);
+
+        // Validate opponent
+        if (opponentUsername == null || opponentUsername.isBlank() || opponentUsername.equalsIgnoreCase("UNKNOWN")) {
+            System.out.println("⚠ Opponent không hợp lệ");
+            return message;
         }
 
-        if (!gameRepository.existsByPlayerUsernameAndResult(message.getSender(), GameResult.valueOf(message.getResult().toUpperCase()))) {
-            saveGameForPlayer(matchId, message.getSender(), opponentUsername, message.getResult());
+        // Cập nhật ELO
+        try {
+            GameResult result = GameResult.valueOf(message.getResult().toUpperCase());
+            ratingService.updateElo(message.getSender(), opponentUsername, result);
+            System.out.println("✅ ELO updated: " + message.getSender() + " vs " + opponentUsername);
+        } catch (IllegalArgumentException e) {
+            System.out.println("⚠ Invalid result: " + message.getResult());
         }
 
         return message;
