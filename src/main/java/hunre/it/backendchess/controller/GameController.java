@@ -5,6 +5,7 @@ import hunre.it.backendchess.DTO.UserStats;
 import hunre.it.backendchess.models.Game;
 import hunre.it.backendchess.models.GameResult;
 import hunre.it.backendchess.models.OpponentType;
+import hunre.it.backendchess.models.User;
 import hunre.it.backendchess.repository.GameRepository;
 import hunre.it.backendchess.repository.UserRepository;
 import hunre.it.backendchess.service.RatingService;
@@ -25,6 +26,8 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.handler.annotation.Payload;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/game")
@@ -108,19 +111,32 @@ public class GameController {
     }
 
 
-    @GetMapping("/stats/{username}")
-    public ResponseEntity<?> getUserStats(@PathVariable String username) {
-        long totalGames = gameRepository.countByPlayerUsername(username);
-        long wins = gameRepository.countByPlayerUsernameAndResult(username, GameResult.WIN);
-        long losses = gameRepository.countByPlayerUsernameAndResult(username, GameResult.LOSE);
-        long draws = gameRepository.countByPlayerUsernameAndResult(username, GameResult.DRAW);
+    // Trong API Controller
+    @GetMapping("/stats/user/{userId}")
+    public ResponseEntity<?> getUserStats(@PathVariable Long userId) {
+        // Kiểm tra user tồn tại
+        if (!userRepository.existsById(userId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Không tìm thấy user với ID: " + userId);
+        }
 
+        // Thống kê qua userId
+        long totalGames = gameRepository.countByUserId(userId);
+        long wins = gameRepository.countByUserIdAndResult(userId, GameResult.WIN);
+        long losses = gameRepository.countByUserIdAndResult(userId, GameResult.LOSE);
+        long draws = gameRepository.countByUserIdAndResult(userId, GameResult.DRAW);
+
+        // Tính tỷ lệ
         double winRate = totalGames > 0 ? (wins * 100.0 / totalGames) : 0;
         double lossRate = totalGames > 0 ? (losses * 100.0 / totalGames) : 0;
         double drawRate = totalGames > 0 ? (draws * 100.0 / totalGames) : 0;
 
-        return ResponseEntity.ok(new UserStats(totalGames, winRate, lossRate, drawRate));
+        return ResponseEntity.ok(new UserStats(
+                totalGames, wins, losses, draws,
+                winRate, lossRate, drawRate
+        ));
     }
+
 
 
 

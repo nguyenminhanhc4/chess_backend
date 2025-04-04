@@ -79,9 +79,6 @@ public class UserController {
                 .map(user -> {
                     user.setUsername(updatedUser.getUsername());
                     user.setEmail(updatedUser.getEmail());
-                    user.setPassword(updatedUser.getPassword());
-                    user.setProfilePicture(updatedUser.getProfilePicture());
-                    user.setRating(updatedUser.getRating());
                     User saved = userRepository.save(user);
                     return ResponseEntity.ok(saved);
                 })

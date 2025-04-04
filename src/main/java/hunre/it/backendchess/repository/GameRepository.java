@@ -20,7 +20,8 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     List<Game> findByMatchId(UUID matchId);
 
     boolean existsByMatchId(UUID matchId);
-
+    long countByUserId(Long userId);
+    long countByUserIdAndResult(Long userId, GameResult result);
 
     default String findOpponentByMatchId(UUID matchId, String sender) {
         return findByMatchId(matchId) // Trả về List<Game>

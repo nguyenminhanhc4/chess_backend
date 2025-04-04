@@ -37,4 +37,7 @@ public class Game {
     private Integer blackTimeRemaining;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "user_id")
+    private Long userId;
 }
