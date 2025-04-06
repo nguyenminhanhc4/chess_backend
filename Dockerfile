@@ -5,7 +5,12 @@ WORKDIR /app
 # Copy all files
 COPY . .
 
-# Verify and set permissions for Stockfish (Linux version)
+# Install required tools for verification
+RUN apt-get update && \
+    apt-get install -y file && \
+    rm -rf /var/lib/apt/lists/*
+
+# Verify and set permissions for Stockfish
 RUN ls -l stockfish/ && \
     mv stockfish/stockfish-ubuntu-x86-64-avx2 stockfish/stockfish && \
     chmod +x stockfish/stockfish && \
@@ -24,17 +29,8 @@ COPY --from=build /app/target/backend-chess-0.0.1-SNAPSHOT.jar app.jar
 # Copy Stockfish binary to system path
 COPY --from=build /app/stockfish/stockfish /usr/local/bin/stockfish
 
-# Verify in runtime stage
-RUN ls -l /usr/local/bin/stockfish && \
-    chmod +x /usr/local/bin/stockfish && \
-    file /usr/local/bin/stockfish
-
-# Install dependencies if needed
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libgl1 \
-    libxi6 \
-    && rm -rf /var/lib/apt/lists/*
+# Verify and set permissions
+RUN chmod +x /usr/local/bin/stockfish
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
