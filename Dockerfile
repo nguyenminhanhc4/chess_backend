@@ -3,7 +3,7 @@ WORKDIR /app
 COPY . .
 
 # Cấp quyền thực thi cho file Stockfish
-RUN chmod +x src/main/resources/stockfish/stockfish
+RUN chmod +x stockfish/stockfish-windows-x86-64-avx2
 
 RUN mvn clean package -DskipTests
 
