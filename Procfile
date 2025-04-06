@@ -1,0 +1,1 @@
+web: java -Xmx256m -Xss512k -jar target/backend-chess-0.0.1-SNAPSHOT.jar
