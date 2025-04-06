@@ -13,7 +13,7 @@ public class StockfishEngine {
     // Khởi chạy Stockfish process
     public void startEngine() throws Exception {
         // Đường dẫn tương đối đến file stockfish (đảm bảo rằng file này nằm trong thư mục dự án của bạn)
-        ProcessBuilder pb = new ProcessBuilder("stockfish/stockfish-windows-x86-64-avx2.exe");
+        ProcessBuilder pb = new ProcessBuilder("stockfish/stockfish");
         engineProcess = pb.start();
         engineInput = new OutputStreamWriter(engineProcess.getOutputStream());
         engineOutput = new BufferedReader(new InputStreamReader(engineProcess.getInputStream()));
