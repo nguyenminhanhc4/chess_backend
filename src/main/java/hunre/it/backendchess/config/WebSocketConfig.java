@@ -12,7 +12,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("http://localhost:5173","https://chess-backend-qe9x.onrender.com")
+                .setAllowedOriginPatterns("http://localhost:5173","https://chess-frontend-one-roan.vercel.app/")
                 .addInterceptors(new CustomHandshakeInterceptor())
                 .withSockJS();
     }
