@@ -9,7 +9,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**") // áp dụng cho tất cả các endpoint có đường dẫn bắt đầu bằng /api/
-                .allowedOrigins("http://localhost:5173") // cho phép request từ origin này
+                .allowedOrigins("http://localhost:5173","https://chess-backend-qe9x.onrender.com") // cho phép request từ origin này
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
