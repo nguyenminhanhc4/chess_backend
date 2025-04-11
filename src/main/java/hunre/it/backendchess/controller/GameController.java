@@ -87,6 +87,7 @@ public class GameController {
                     : "No moves");
             gameToSave.setFinalFen(gameRequest.getFinalFen());
             gameToSave.setCreatedAt(LocalDateTime.now());
+            gameToSave.setUserId(gameRequest.getUserId());
             gameRepository.save(gameToSave);
 
             if (gameRequest.getResult() == GameResult.WIN) {
